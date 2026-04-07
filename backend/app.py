@@ -19,7 +19,7 @@ app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 # 历史记录存储
 history = []
 
-# 模拟AI模型 (初期返回固定结果)
+# 模拟AI模型(初期返回固定结果)
 # def mock_predict(image_path):
 #     return {"word": "你好", "confidence": 0.95}
 
@@ -27,15 +27,25 @@ history = []
 try:
     # 这里会在AI同学提交代码后生效
     from ai_model import predict as ai_predict
-    
+
     def real_predict(image_path):
         """调用AI模型预测"""
         result = ai_predict(image_path)
-        return {"word": result, "confidence": 0.9}
+        return {"word": result["word"], "confidence": result["confidence"]}
 except ImportError:
-    # 如果AI模型还没准备好，使用mock
+    # 如果AI模型还没准备好,使用mock
     def real_predict(image_path):
         return {"word": "AI模型加载中...", "confidence": 0.0}
+
+# ✅ 新增：健康检查接口 (解决404问题)
+@app.route('/health')
+def health_check():
+    """健康检查接口，返回服务运行状态"""
+    return jsonify({
+        "status": "healthy",
+        "message": "Flask 后端服务运行正常",
+        "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    })
 
 @app.route('/hello')
 def hello():
@@ -79,4 +89,5 @@ def get_history():
     return jsonify(history[-20:])
 
 if __name__ == '__main__':
+    # 监听所有地址，允许局域网访问，端口5000
     app.run(host='0.0.0.0', port=5000, debug=True)
