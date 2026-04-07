@@ -1,5 +1,5 @@
 from flask import Flask, request, jsonify
-from flask_cors import CORS  # 引入CORS
+from flask_cors import CORS
 import os
 import base64
 from werkzeug.utils import secure_filename
@@ -7,8 +7,6 @@ from datetime import datetime
 
 # 初始化Flask应用
 app = Flask(__name__)
-
-# 允许跨域
 CORS(app)
 
 # 配置上传文件夹
@@ -19,38 +17,40 @@ app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 # 历史记录存储
 history = []
 
-# 模拟AI模型(初期返回固定结果)
-# def mock_predict(image_path):
-#     return {"word": "你好", "confidence": 0.95}
+# 模拟AI模型
+def mock_predict(image_path):
+    return {"word": "模拟识别结果", "confidence": 0.95}
 
-# 等待AI同学导入真实模型
+# 实际预测函数（暂时用mock，等AI同学接入真实模型）
+def real_predict(image_path):
+    # 这里等待AI同学导入真实模型后替换
+    return mock_predict(image_path)
+
+# 尝试导入AI同学的真实模型
 try:
-    # 这里会在AI同学提交代码后生效
     from ai_model import predict as ai_predict
-
     def real_predict(image_path):
-        """调用AI模型预测"""
         result = ai_predict(image_path)
         return {"word": result["word"], "confidence": result["confidence"]}
-except ImportError:
-    # 如果AI模型还没准备好,使用mock
-    def real_predict(image_path):
-        return {"word": "AI模型加载中...", "confidence": 0.0}
+    print("✅ 成功加载AI真实模型")
+except Exception as e:
+    print(f"⚠️ AI模型加载失败，使用模拟模式: {e}")
 
-# ✅ 新增：健康检查接口 (解决404问题)
-@app.route('/health')
+# 健康检查接口
+@app.route('/health', methods=['GET'])
 def health_check():
-    """健康检查接口，返回服务运行状态"""
     return jsonify({
         "status": "healthy",
-        "message": "Flask 后端服务运行正常",
+        "message": "Flask后端服务运行正常",
         "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     })
 
-@app.route('/hello')
+# 测试接口
+@app.route('/hello', methods=['GET'])
 def hello():
-    return "Hello Flask 后端启动成功！"
+    return "Hello Flask后端启动成功！"
 
+# 预测接口（核心）
 @app.route('/predict', methods=['POST'])
 def predict():
     # 检查是否有文件上传
@@ -69,7 +69,7 @@ def predict():
         filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
         file.save(filepath)
         
-        # 调用AI预测接口
+        # 调用AI预测
         result = real_predict(filepath)
         
         # 保存历史记录
@@ -83,11 +83,10 @@ def predict():
     
     return jsonify({"error": "Upload failed"}), 500
 
+# 历史记录接口
 @app.route('/history', methods=['GET'])
 def get_history():
-    # 返回最近20条记录
     return jsonify(history[-20:])
 
 if __name__ == '__main__':
-    # 监听所有地址，允许局域网访问，端口5000
     app.run(host='0.0.0.0', port=5000, debug=True)
