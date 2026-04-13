@@ -1,0 +1,49 @@
+<!-- 相机预览区（未拍照时显示） -->
+<view class="camera-view" wx:if="{{!showPreview}}">
+  <camera 
+    class="camera" 
+    device-position="back" 
+    flash="off" 
+    binderror="onCameraError"
+  />
+</view>
+
+<!-- 图片预览区（拍照/选择后显示） -->
+<view class="preview-view" wx:if="{{showPreview}}">
+  <image class="preview-image" src="{{photoPath}}" mode="aspectFill" />
+</view>
+
+<!-- 底部操作区（非处理中状态显示） -->
+<view class="bottom-button-group" wx:if="{{!isProcessing}}">
+  <!-- 拍照按钮（圆形） - 仅在非预览模式显示 -->
+  <view class="shutter-wrapper" wx:if="{{!showPreview}}">
+    <view class="shutter-btn" bindtap="takePhoto">
+      <view class="shutter-inner"></view>
+    </view>
+  </view>
+  
+  <!-- 相册按钮（胶囊形） - 仅在非预览模式显示 -->
+  <view class="album-wrapper" wx:if="{{!showPreview}}">
+    <button class="album-btn" bindtap="chooseFromAlbum">
+      🖼️ 从相册选择
+    </button>
+  </view>
+</view>
+
+<!-- 预览模式下的操作按钮（重新拍摄 + 确定） -->
+<view class="preview-actions" wx:if="{{showPreview && !isProcessing}}">
+  <button class="action-btn reset-btn" bindtap="resetCamera">
+    重新拍摄
+  </button>
+  <button class="action-btn confirm-btn" bindtap="confirmPhoto">
+    使用照片
+  </button>
+</view>
+
+<!-- 加载状态（识别中） -->
+<view class="loading-mask" wx:if="{{isProcessing}}">
+  <view class="loading-content">
+    <view class="loading-spinner"></view>
+    <text class="loading-text">识别中...</text>
+  </view>
+</view>

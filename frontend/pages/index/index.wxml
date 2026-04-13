@@ -1,0 +1,28 @@
+<view class="container index-container">
+  <!-- Logo区域 -->
+  <view class="logo-area">
+    <view class="logo-icon">🤟</view>
+    <text class="logo-title">手语轻译</text>
+    <text class="logo-subtitle">AI手语翻译系统</text>
+  </view>
+
+  <!-- 功能入口 -->
+  <view class="menu-area">
+    <view class="menu-card" bindtap="goToCamera">
+      <view class="menu-icon">📷</view>
+      <text class="menu-title">开始识别</text>
+      <text class="menu-desc">拍照或从相册选择手语手势</text>
+    </view>
+
+    <view class="menu-card" bindtap="goToHistory">
+      <view class="menu-icon">📋</view>
+      <text class="menu-title">识别历史</text>
+      <text class="menu-desc">查看之前的识别记录</text>
+    </view>
+  </view>
+
+  <!-- 底部说明 -->
+  <view class="footer">
+    <text>支持20+种常用手语识别</text>
+  </view>
+</view>

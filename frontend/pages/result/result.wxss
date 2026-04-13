@@ -1,0 +1,85 @@
+.result-container {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  min-height: 100vh;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  padding: 60rpx 40rpx;
+}
+
+.result-card {
+  background: white;
+  border-radius: 48rpx;
+  padding: 60rpx 40rpx;
+  text-align: center;
+  margin-bottom: 60rpx;
+  box-shadow: 0 20rpx 40rpx rgba(0,0,0,0.2);
+}
+
+.result-icon {
+  font-size: 100rpx;
+  margin-bottom: 30rpx;
+}
+
+.result-label {
+  display: block;
+  font-size: 28rpx;
+  color: #999;
+  letter-spacing: 2rpx;
+  margin-bottom: 16rpx;
+}
+
+.result-word {
+  display: block;
+  font-size: 80rpx;
+  font-weight: bold;
+  color: #333;
+  margin-bottom: 40rpx;
+}
+
+.confidence-bar {
+  height: 12rpx;
+  background: #e8e8e8;
+  border-radius: 6rpx;
+  overflow: hidden;
+  margin-bottom: 12rpx;
+}
+
+.confidence-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #667eea, #764ba2);
+  border-radius: 6rpx;
+  transition: width 0.3s ease;
+}
+
+.confidence-text {
+  font-size: 24rpx;
+  color: #999;
+}
+
+.action-buttons {
+  display: flex;
+  flex-direction: column;
+  gap: 24rpx;
+}
+
+.btn-primary {
+  background: white;
+  color: #667eea;
+  border-radius: 60rpx;
+  font-size: 32rpx;
+  font-weight: 600;
+  border: none;
+}
+
+.btn-primary::after {
+  border: none;
+}
+
+.btn-secondary {
+  background: rgba(255,255,255,0.2);
+  color: white;
+  border-radius: 60rpx;
+  font-size: 32rpx;
+  border: 2rpx solid rgba(255,255,255,0.5);
+}

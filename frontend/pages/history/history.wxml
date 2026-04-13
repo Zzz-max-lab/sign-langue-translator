@@ -1,0 +1,28 @@
+<view class="history-container">
+  <view class="history-header">
+    <text class="history-title">识别历史</text>
+    <view class="header-actions">
+      <button wx:if="{{historyList.length > 0}}" class="edit-btn" bindtap="toggleEditMode">{{isEditMode ? '完成' : '编辑'}}</button>
+      <button wx:if="{{isEditMode && historyList.length > 0}}" class="clear-btn" bindtap="clearAll">清空</button>
+    </view>
+  </view>
+
+  <scroll-view scroll-y class="history-list" enhanced show-scrollbar="{{false}}">
+    <view wx:if="{{historyList.length === 0}}" class="empty-state">
+      <text class="empty-icon">📭</text>
+      <text class="empty-text">暂无识别记录</text>
+      <button class="empty-btn" bindtap="goToCamera">去识别</button>
+    </view>
+
+    <view wx:for="{{historyList}}" wx:key="id" class="history-item" bindtap="{{isEditMode ? '' : 'viewDetail'}}" data-item="{{item}}">
+      <view class="item-left">
+        <text class="item-word">{{item.word}}</text>
+        <text class="item-time">{{item.time}}</text>
+      </view>
+      <view class="item-right">
+        <text class="item-confidence">{{item.confidence * 100}}%</text>
+        <view wx:if="{{isEditMode}}" class="delete-btn" catchtap="deleteItem" data-id="{{item.id}}">🗑️</view>
+      </view>
+    </view>
+  </scroll-view>
+</view>

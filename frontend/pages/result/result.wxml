@@ -1,0 +1,15 @@
+<view class="container result-container">
+  <view class="result-card">
+    <view class="result-icon">🤟</view>
+    <text class="result-label">识别结果</text>
+    <text class="result-word">{{word}}</text>
+    <view class="confidence-bar">
+      <view class="confidence-fill" style="width: {{confidence * 100}}"></view>
+    </view>
+    <text class="confidence-text">置信度 {{confidence * 100}}%</text>
+  </view>
+  <view class="action-buttons">
+    <button class="btn-primary" bindtap="continueRecognize">继续识别</button>
+    <button class="btn-secondary" bindtap="viewHistory">查看历史</button>
+  </view>
+</view>
