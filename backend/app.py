@@ -10,162 +10,180 @@ import mediapipe as mp
 app = Flask(__name__)
 CORS(app)  # 允许跨域请求
 
-# 配置上传文件夹
+# ==================== 配置 ====================
 app.config['UPLOAD_FOLDER'] = 'uploads'
-app.config['MAX_CONTENT_LENGTH'] = 10 * 1024 * 1024  # 10MB限制
-ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'bmp'}
-
-# 创建上传文件夹
+app.config['MAX_CONTENT_LENGTH'] = 10 * 1024 * 1024  # 限制10MB
 os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
 
-# 加载AI模型（全局变量）
-model = None
-scaler = None
-label_to_word = None  # 新增：用于将数字标签映射为文字
+# ==================== 全局变量 ====================
+model = None          # AI分类模型
+scaler = None         # 数据标准化器
+label_map = None      # 标签映射 {0: '你好', 1: '谢谢', ...}
 
-# 初始化MediaPipe手部检测
+# 初始化MediaPipe（手部关键点检测）
 mp_hands = mp.solutions.hands
 hands = mp_hands.Hands(
-    static_image_mode=True,
-    max_num_hands=1,
-    min_detection_confidence=0.5
+    static_image_mode=True,      # 图片模式（非视频流）
+    max_num_hands=1,             # 只检测一只手
+    min_detection_confidence=0.5 # 检测置信度阈值
 )
 
-def allowed_file(filename):
-    """检查文件扩展名是否合法"""
-    return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
-
-def extract_hand_landmarks(image_path):
-    """提取手部关键点特征"""
-    image = cv2.imread(image_path)
-    if image is None:
+# ==================== 辅助函数 ====================
+def extract_features(image_path):
+    """
+    从图片提取手部关键点特征（42维）
+    21个关键点 × (x, y) = 42个特征
+    """
+    # 读取图片
+    img = cv2.imread(image_path)
+    if img is None:
         return None
     
-    image_rgb = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
-    results = hands.process(image_rgb)
+    # 转换为RGB（MediaPipe需要RGB格式）
+    img_rgb = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+    result = hands.process(img_rgb)
     
-    if not results.multi_hand_landmarks:
+    # 未检测到手部
+    if not result.multi_hand_landmarks:
         return None
     
-    hand_landmarks = results.multi_hand_landmarks[0]
+    # 提取第一只手的21个关键点坐标（只取x,y，不要z）
+    landmarks = result.multi_hand_landmarks[0]
     features = []
-    for landmark in hand_landmarks.landmark:
-        features.extend([landmark.x, landmark.y, landmark.z])
+    for lm in landmarks.landmark:
+        features.append(lm.x)  # X坐标
+        features.append(lm.y)  # Y坐标
+        # 不添加lm.z，保持42维特征
     
-    return features
+    return features  # 返回长度为42的列表
+
+def compress_image(image_path, max_size=640):
+    """
+    压缩图片，加快处理速度
+    """
+    img = cv2.imread(image_path)
+    if img is None:
+        return
+    
+    h, w = img.shape[:2]
+    if max(w, h) > max_size:
+        scale = max_size / max(w, h)
+        new_w = int(w * scale)
+        new_h = int(h * scale)
+        img = cv2.resize(img, (new_w, new_h))
+        cv2.imwrite(image_path, img)
+
+# ==================== API接口 ====================
+import base64  # 顶部导入这个库
 
 @app.route('/predict', methods=['POST'])
 def predict():
-    """手势识别接口（最终版）"""
+    """
+    手势识别接口（适配前端JSON/base64格式）
+    接收JSON格式的base64图片，返回识别结果
+    """
     try:
-        # 1. 检查请求是否包含图片
-        if 'image' not in request.files:
-            return jsonify({'error': '没有上传图片'}), 400
-        file = request.files['image']
-
-        # 2. 检查文件名
-        if file.filename == '':
-            return jsonify({'error': '文件名为空'}), 400
-
-        # 3. 检查文件类型
-        if not allowed_file(file.filename):
-            return jsonify({'error': '不支持的文件类型'}), 400
-
-        # 4. 保存临时图片
-        filename = secure_filename(file.filename)
+        # 1. 接收前端发来的JSON数据
+        data = request.get_json()
+        if not data or 'image' not in data:
+            return jsonify({'error': '请上传图片'}), 400
+        
+        base64_image = data['image']
+        
+        # 2. base64解码为图片
+        try:
+            # 去掉base64头（如果有的话）
+            if ',' in base64_image:
+                base64_image = base64_image.split(',')[1]
+            img_data = base64.b64decode(base64_image)
+            img_array = np.frombuffer(img_data, np.uint8)
+            img = cv2.imdecode(img_array, cv2.IMREAD_COLOR)
+        except Exception as e:
+            return jsonify({'error': f'图片解码失败: {str(e)}'}), 400
+        
+        if img is None:
+            return jsonify({'error': '图片读取失败'}), 400
+        
+        # 3. 保存临时图片（适配原extract_features函数）
+        filename = 'temp.jpg'
         filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
-        file.save(filepath)
-
-        # 5. 提取特征
-        features = extract_hand_landmarks(filepath)
+        cv2.imwrite(filepath, img)
+        
+        # 4. 压缩图片（可选，加快速度）
+        compress_image(filepath)
+        
+        # 5. 提取手部特征
+        features = extract_features(filepath)
         os.remove(filepath)  # 删除临时文件
         
         if features is None:
-            return jsonify({'error': '未检测到手部'}), 400
-
-        # 6. 手势预测
-        prediction = None
-        confidence = 0.0
+            return jsonify({'error': '未检测到手部，请确保手部清晰可见'}), 400
         
-        if model is not None and scaler is not None:
-            # 使用真实AI模型预测
+        # 6. 特征数量检查（必须是42维）
+        if len(features) != 42:
+            return jsonify({'error': f'特征提取异常，期望42维，实际{len(features)}维'}), 500
+        
+        # 7. AI预测
+        if model and scaler and label_map:
+            # 标准化特征
             features_scaled = scaler.transform([features])
-            prediction = model.predict(features_scaled)[0]
-            confidence = float(np.max(model.predict_proba(features_scaled)[0]))
+            # 预测标签
+            pred_label = model.predict(features_scaled)[0]
+            # 获取置信度
+            proba = model.predict_proba(features_scaled)[0]
+            confidence = float(max(proba))
+            # 转换为文字
+            result = label_map.get(int(pred_label), '未知')
         else:
-            # 模拟预测（降级方案）
-            prediction = predict_simple(features)
-            confidence = 0.7
-
-        # 7. 转换为文字结果
-        result = "未知手势"
-        if label_to_word is not None:
-            # 使用AI同学提供的映射表
-            result = label_to_word.get(int(prediction), f"手势{prediction}")
-        else:
-            # 备用映射表
-            gesture_map = {0: '你好', 1: '谢谢', 2: '再见', 3: '是', 4: '否', 5: '帮助'}
-            result = gesture_map.get(int(prediction), f"手势{prediction}")
-
+            # 降级方案：返回默认结果
+            result = '你好'
+            confidence = 0.5
+        
         # 8. 返回结果
         return jsonify({
-            'success': True,
-            'gesture': result,
-            'confidence': round(confidence, 2),
-            'prediction': int(prediction)
+            'word': result,
+            'confidence': round(confidence, 2)
         })
-
+    
     except Exception as e:
-        return jsonify({'error': f"服务器错误: {str(e)}"}), 500
+        return jsonify({'error': f'服务器错误: {str(e)}'}), 500
 
-def predict_simple(features):
-    """简单的手势判断规则（备用）"""
-    if len(features) < 2:
-        return 0
-    wrist_x = features[0]
-    if wrist_x < 0.3:
-        return 0  # 你好
-    elif wrist_x > 0.7:
-        return 1  # 谢谢
-    else:
-        return 2  # 再见
 
 @app.route('/health', methods=['GET'])
 def health():
     """健康检查接口"""
     return jsonify({
-        'status': 'ok', 
-        'model_loaded': model is not None,
-        'label_mapping_loaded': label_to_word is not None
+        'status': 'ok',
+        'model_loaded': model is not None
     })
+
 
 @app.route('/', methods=['GET'])
 def index():
-    """首页接口"""
+    """根路径接口"""
     return jsonify({
         'name': '手语识别API',
         'version': '2.0',
-        'endpoints': {
-            'predict': '/predict (POST)',
-            'health': '/health (GET)'
-        }
+        'endpoints': ['/predict (POST)', '/health (GET)']
     })
 
+
+# ==================== 启动服务 ====================
 if __name__ == '__main__':
-    # 加载模型（放在启动前，确保启动时变量已定义）
+    # 加载AI模型
     try:
         with open('gesture_model.pkl', 'rb') as f:
             model = pickle.load(f)
         with open('scaler.pkl', 'rb') as f:
             scaler = pickle.load(f)
         with open('label_to_word.pkl', 'rb') as f:
-            label_to_word = pickle.load(f)
-        print("✅ 成功加载真实AI模型及标签映射！")
+            label_map = pickle.load(f)
+        print('✅ AI模型加载成功')
     except FileNotFoundError as e:
-        print(f"⚠️  未找到模型文件: {e.filename}，将使用模拟模式运行")
+        print(f'⚠️ 模型文件不存在: {e.filename}，将使用模拟模式')
     except Exception as e:
-        print(f"❌ 模型加载失败: {e}，将使用模拟模式运行")
+        print(f'❌ 模型加载失败: {e}，将使用模拟模式')
     
-    # 启动服务
-    print("🚀 启动Flask服务...")
-    app.run(host='0.0.0.0', port=5000, debug=True, use_reloader=False)
+    # 启动Flask服务
+    print('🚀 服务启动: http://0.0.0.0:5000')
+    app.run(host='0.0.0.0', port=5000, debug=True)
